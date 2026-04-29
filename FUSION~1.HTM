@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Processamento LiDAR com FUSION — Apresentação</title>
+<style>
+  :root{
+    --forest:#2C5F2D;
+    --moss:#97BC62;
+    --cream:#F5F5F5;
+    --dark:#1B2A1A;
+    --accent:#E8A23C;
+    --slate:#3E4E3D;
+    --line:#D5D9CF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#0c1410;color:var(--cream);font-family:Calibri,'Segoe UI',Arial,sans-serif;overflow:hidden}
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  .slide{
+    width:min(96vw,1280px);
+    aspect-ratio:16/9;
+    background:var(--cream);
+    color:var(--dark);
+    border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55);
+    position:relative;
+    overflow:hidden;
+    display:none;
+    padding:54px 64px;
+  }
+  .slide.active{display:block;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  /* Title slide */
+  .slide.cover{
+    background:linear-gradient(135deg,var(--forest) 0%,#1f4521 60%,#16321a 100%);
+    color:var(--cream);
+    padding:60px 70px;
+  }
+  .slide.cover .eyebrow{color:var(--moss);letter-spacing:6px;font-size:14px;text-transform:uppercase;font-weight:700}
+  .slide.cover h1{font-family:Georgia,serif;font-size:56px;line-height:1.05;margin:18px 0 14px;font-weight:700}
+  .slide.cover h2{font-family:Georgia,serif;font-style:italic;font-weight:400;font-size:22px;color:#dfe9d4;max-width:720px}
+  .slide.cover .meta{position:absolute;bottom:46px;left:70px;color:#bcd0a8;font-size:13px;letter-spacing:2px}
+  .slide.cover .blob{position:absolute;right:-80px;top:-80px;width:340px;height:340px;border-radius:50%;background:rgba(151,188,98,.22)}
+  .slide.cover .blob2{position:absolute;right:120px;bottom:-90px;width:220px;height:220px;border-radius:50%;background:rgba(232,162,60,.18)}
+
+  /* Generic content slide */
+  h3.section{color:var(--moss);font-size:13px;letter-spacing:4px;text-transform:uppercase;font-weight:700;margin-bottom:8px}
+  h2.title{font-family:Georgia,serif;font-size:34px;color:var(--forest);font-weight:700;margin-bottom:22px;line-height:1.15}
+  p.lead{font-size:17px;color:var(--slate);max-width:980px;line-height:1.45}
+  .two-col{display:grid;grid-template-columns:1.05fr 1fr;gap:34px;margin-top:18px}
+  .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}
+  .card{background:#fff;border-radius:10px;padding:18px 20px;box-shadow:0 4px 14px rgba(0,0,0,.06);border-left:4px solid var(--forest)}
+  .card.alt{border-left-color:var(--accent)}
+  .card.muted{border-left-color:var(--moss)}
+  .card h4{font-family:Georgia,serif;font-size:18px;color:var(--forest);margin-bottom:6px}
+  .card p{font-size:14px;color:var(--slate);line-height:1.45}
+  .step-num{display:inline-flex;width:32px;height:32px;border-radius:50%;background:var(--forest);color:#fff;align-items:center;justify-content:center;font-weight:700;margin-right:10px;font-family:Georgia,serif}
+  ul.clean{list-style:none;padding:0;margin:10px 0}
+  ul.clean li{padding:8px 0 8px 22px;border-bottom:1px solid var(--line);position:relative;font-size:15px;color:var(--slate)}
+  ul.clean li:last-child{border-bottom:none}
+  ul.clean li::before{content:"";position:absolute;left:0;top:14px;width:10px;height:10px;background:var(--moss);border-radius:50%}
+  code,pre{font-family:Consolas,'Courier New',monospace}
+  pre.code{background:#1B2A1A;color:#dfe9d4;padding:18px 22px;border-radius:10px;font-size:13px;line-height:1.65;overflow:auto;border-left:4px solid var(--accent)}
+  pre.code .cmd{color:#E8A23C}
+  pre.code .arg{color:#a8d28b}
+  pre.code .com{color:#86968a;font-style:italic}
+  .pill{display:inline-block;background:var(--moss);color:var(--dark);font-size:11px;padding:3px 10px;border-radius:30px;font-weight:700;letter-spacing:1px;margin-right:6px}
+  .pill.alt{background:var(--accent);color:#3a2a08}
+  .pill.dark{background:var(--forest);color:#fff}
+  table.params{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}
+  table.params th{text-align:left;background:var(--forest);color:#fff;padding:9px 10px;font-weight:700}
+  table.params td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--slate);vertical-align:top}
+  table.params td:first-child{font-family:Consolas,monospace;color:var(--dark);width:120px;font-weight:700}
+  /* Pipeline diagram */
+  .pipeline{display:flex;align-items:stretch;gap:6px;margin-top:18px}
+  .pstep{flex:1;background:#fff;border-radius:8px;padding:14px 12px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-top:4px solid var(--forest);position:relative;text-align:center}
+  .pstep .n{font-family:Georgia,serif;font-size:22px;color:var(--accent);font-weight:700}
+  .pstep .t{font-family:Consolas,monospace;font-size:12px;color:var(--forest);font-weight:700;margin:4px 0 2px;word-break:break-word}
+  .pstep .d{font-size:11px;color:var(--slate);line-height:1.35}
+  .arrow{display:flex;align-items:center;color:var(--accent);font-size:20px;font-weight:700}
+  .footer-note{position:absolute;bottom:18px;left:64px;right:64px;color:#9aa49a;font-size:11px;display:flex;justify-content:space-between;font-family:Consolas,monospace}
+  /* Nav */
+  .nav{position:fixed;bottom:18px;right:24px;display:flex;gap:10px;z-index:5}
+  .nav button{background:rgba(255,255,255,.92);color:var(--forest);border:none;padding:8px 14px;border-radius:30px;font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+  .nav button:hover{background:#fff}
+  .counter{position:fixed;bottom:24px;left:24px;color:#9bb19a;font-family:Consolas,monospace;font-size:12px;letter-spacing:2px;z-index:5}
+  /* Stat large */
+  .stat{font-family:Georgia,serif;font-size:64px;color:var(--accent);line-height:1;font-weight:700}
+  .stat-label{font-size:12px;color:var(--slate);letter-spacing:2px;text-transform:uppercase;margin-top:6px}
+  /* Diagram - column meaning */
+  .col-row{display:grid;grid-template-columns:90px 1fr 1fr;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;align-items:center}
+  .col-row:last-child{border-bottom:none}
+  .col-num{font-family:Georgia,serif;font-size:22px;color:var(--accent);font-weight:700;text-align:center;background:#1B2A1A;color:var(--accent);border-radius:8px;padding:8px 0}
+  .col-row .nm{font-weight:700;color:var(--forest);font-family:Consolas,monospace;font-size:13px}
+  .col-row .desc{color:var(--slate);line-height:1.4}
+  /* Closing */
+  .slide.end{background:linear-gradient(135deg,#16321a 0%,var(--forest) 100%);color:var(--cream)}
+  .slide.end h2{color:var(--cream);font-family:Georgia,serif;font-size:42px;margin-bottom:18px}
+  .slide.end p{color:#dfe9d4;font-size:17px;max-width:880px;line-height:1.5}
+  .slide.end .ref{margin-top:20px;border-left:3px solid var(--accent);padding-left:14px;font-size:14px;color:#dfe9d4;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="stage">
+
+<!-- 1: Cover -->
+<section class="slide cover active" data-i="1">
+  <div class="blob"></div><div class="blob2"></div>
+  <div class="eyebrow">Documento Técnico Resumido</div>
+  <h1>Processamento de Transectos<br/>LiDAR com FUSION</h1>
+  <h2>Análise didática do pipeline GroundFilter → DTM → GridMetrics → Raster, com base no script NP_T-0355.</h2>
+  <div class="meta">FUSION/LDV · USDA Forest Service · R. McGaughey   ·   abril 2026</div>
+</section>
+
+<!-- 2: Visão geral -->
+<section class="slide" data-i="2">
+  <h3 class="section">Visão Geral</h3>
+  <h2 class="title">O que faz o seu pipeline, em uma frase</h2>
+  <p class="lead">Transformar uma <strong>nuvem de pontos LiDAR bruta (.laz)</strong> em <strong>métricas de dossel</strong> e em um <strong>modelo digital do terreno (DTM)</strong>, exportando rasters prontos para análise em SIG e um polígono de contorno do transecto.</p>
+  <div class="three-col" style="margin-top:30px">
+    <div class="card"><h4>Entrada</h4><p>Nuvem de pontos LiDAR <code>.laz</code> de um transecto (ex.: <code>NP_T-0355.laz</code>).</p></div>
+    <div class="card alt"><h4>Processamento</h4><p>Filtragem do solo, geração do DTM, cálculo de métricas por célula e extração de camadas raster.</p></div>
+    <div class="card muted"><h4>Saída</h4><p>DTM (.dtm), CSV de métricas, rasters ASCII (<code>.asc</code>) e shapefile de contorno (<code>.shp</code>).</p></div>
+  </div>
+  <p class="lead" style="margin-top:24px;font-size:14px;color:#7c8779;font-style:italic">FUSION é uma suíte gratuita do USDA Forest Service voltada à análise de LiDAR para inventário florestal e modelagem de terreno.</p>
+</section>
+
+<!-- 3: Pipeline diagram -->
+<section class="slide" data-i="3">
+  <h3 class="section">Fluxograma</h3>
+  <h2 class="title">Pipeline em 5 etapas</h2>
+  <div class="pipeline">
+    <div class="pstep"><div class="n">1</div><div class="t">GroundFilter64</div><div class="d">Identifica retornos do solo na nuvem</div></div>
+    <div class="arrow">▶</div>
+    <div class="pstep"><div class="n">2</div><div class="t">GridSurfaceCreate64</div><div class="d">Gera DTM (modelo do terreno)</div></div>
+    <div class="arrow">▶</div>
+    <div class="pstep"><div class="n">3</div><div class="t">GridMetrics64</div><div class="d">Calcula estatísticas por célula</div></div>
+    <div class="arrow">▶</div>
+    <div class="pstep"><div class="n">4</div><div class="t">CSV2Grid</div><div class="d">Extrai colunas para raster ASCII</div></div>
+    <div class="arrow">▶</div>
+    <div class="pstep"><div class="n">5</div><div class="t">lasboundary64</div><div class="d">Gera shapefile do contorno</div></div>
+  </div>
+  <div class="two-col" style="margin-top:30px">
+    <div class="card"><h4>Por que essa ordem?</h4><p>Cada passo depende do anterior: você só consegue calcular altura do dossel <em>depois</em> de ter um DTM, e o DTM exige pontos do solo identificados primeiro.</p></div>
+    <div class="card alt"><h4>Boas práticas</h4><p>Sempre inspecione visualmente após o GroundFilter (FUSION viewer) — erros de classificação aqui se propagam por todo o restante do processamento.</p></div>
+  </div>
+</section>
+
+<!-- 4: Script -->
+<section class="slide" data-i="4">
+  <h3 class="section">Script Original</h3>
+  <h2 class="title">O comando-a-comando do seu .bat</h2>
+  <pre class="code"><span class="com">REM 1) Filtragem do solo</span>
+<span class="cmd">c:\fusion\GroundFilter64</span> <span class="arg">NP_T-0355gnd.laz 8 NP_T-0355.laz</span>
+
+<span class="com">REM 2) Modelo Digital do Terreno (DTM)</span>
+<span class="cmd">c:\fusion\GridSurfaceCreate64</span> <span class="arg">NP_T-0355mdt.dtm 1 m m 1 0 0 0 NP_T-0355gnd.laz</span>
+
+<span class="com">REM 3) Métricas em grade (sem intensidade)</span>
+<span class="cmd">c:\fusion\gridmetrics64</span> <span class="arg">/nointensity NP_T-0355mdt.dtm 2 50 NP_T-0355.csv NP_T-0355.laz</span>
+
+<span class="com">REM 4) Rasterização de colunas específicas (36, 50, 68)</span>
+<span class="cmd">c:\fusion\csv2grid</span> <span class="arg">..._all_returns_elevation_stats.csv 36 ..._grid36.asc</span>
+<span class="cmd">c:\fusion\csv2grid</span> <span class="arg">..._all_returns_elevation_stats.csv 50 ..._grid50.asc</span>
+<span class="cmd">c:\fusion\csv2grid</span> <span class="arg">..._all_returns_elevation_stats.csv 68 ..._grid68.asc</span>
+
+<span class="com">REM 5) Contorno do transecto (LAStools)</span>
+<span class="cmd">C:\lastools\bin\lasboundary64</span> <span class="arg">-i NP_T-0355.laz -o NP_T-0355.shp</span></pre>
+  <div class="footer-note"><span>Os <code>REM</code> indicam linhas comentadas — desative-os ao executar.</span><span>5 etapas · 1 transecto</span></div>
+</section>
+
+<!-- 5: GroundFilter -->
+<section class="slide" data-i="5">
+  <h3 class="section">Etapa 1 · GroundFilter64</h3>
+  <h2 class="title">Identifica retornos do solo</h2>
+  <div class="two-col">
+    <div>
+      <p class="lead">Aplica um algoritmo iterativo (Kraus &amp; Pfeifer, 1998) que pondera cada retorno conforme sua probabilidade de ser solo. Pontos que estão muito acima da superfície estimada recebem peso menor a cada iteração.</p>
+      <table class="params">
+        <tr><th>Parâmetro</th><th>Valor / função</th></tr>
+        <tr><td>cellsize</td><td>Tamanho da célula de filtragem (no script: <strong>8</strong>). Valores maiores acomodam relevo suave; menores preservam detalhe.</td></tr>
+        <tr><td>outputfile</td><td><code>NP_T-0355gnd.laz</code> — pontos classificados como solo.</td></tr>
+        <tr><td>inputfile</td><td><code>NP_T-0355.laz</code> — nuvem original.</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="card"><h4>Switches úteis</h4>
+        <ul class="clean">
+          <li><code>/gparam:value</code> — função peso (default −2.0)</li>
+          <li><code>/wparam:value</code> — distância da função peso (default 2.5)</li>
+          <li><code>/iterations:n</code> — nº de iterações (default 5)</li>
+          <li><code>/tolerance:t</code> — tolerância (vegetação alta densa)</li>
+          <li><code>/class:c,c</code> — restringe a classes específicas</li>
+        </ul>
+      </div>
+      <p class="lead" style="font-size:13px;margin-top:14px;color:#7c8779;font-style:italic">Em terreno acidentado, considere reduzir cellsize para 5 m e aumentar iterations.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6: GridSurfaceCreate -->
+<section class="slide" data-i="6">
+  <h3 class="section">Etapa 2 · GridSurfaceCreate64</h3>
+  <h2 class="title">Cria o DTM (Modelo Digital do Terreno)</h2>
+  <div class="two-col">
+    <div>
+      <p class="lead">A partir dos pontos de solo, gera uma superfície contínua em formato <code>.dtm</code> (binário próprio do FUSION). Esse DTM é referência para "normalizar" alturas — todo cálculo de altura de dossel subtrai o DTM.</p>
+      <pre class="code" style="margin-top:14px;font-size:12px"><span class="cmd">GridSurfaceCreate64</span> <span class="arg">surfacefile cellsize xyunits zunits coordsys zone horizdatum vertdatum datafile</span></pre>
+    </div>
+    <div>
+      <table class="params">
+        <tr><th>Argumento</th><th>Seu valor · significado</th></tr>
+        <tr><td>cellsize</td><td><strong>1</strong> · resolução do DTM (1 m)</td></tr>
+        <tr><td>xyunits</td><td><strong>m</strong> · metros</td></tr>
+        <tr><td>zunits</td><td><strong>m</strong> · metros</td></tr>
+        <tr><td>coordsys</td><td><strong>1</strong> · UTM</td></tr>
+        <tr><td>zone</td><td><strong>0</strong> · não declarado (preencher se publicar)</td></tr>
+        <tr><td>horizdatum</td><td><strong>0</strong> · não declarado</td></tr>
+        <tr><td>vertdatum</td><td><strong>0</strong> · não declarado</td></tr>
+      </table>
+      <p class="lead" style="font-size:12.5px;margin-top:10px;color:#7c8779;font-style:italic">Recomendação: declarar zone, horizdatum e vertdatum corretos garante interoperabilidade com SIG.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7: GridMetrics -->
+<section class="slide" data-i="7">
+  <h3 class="section">Etapa 3 · GridMetrics64</h3>
+  <h2 class="title">Métricas estatísticas por célula</h2>
+  <div class="two-col">
+    <div>
+      <p class="lead">É o coração do pipeline para inventário florestal. Para cada célula da grade, o GridMetrics calcula <strong>dezenas de estatísticas</strong> dos retornos LiDAR — alturas, percentis, densidade do dossel, cobertura, intensidade etc.</p>
+      <pre class="code" style="font-size:12px;margin-top:14px"><span class="cmd">gridmetrics64</span> <span class="arg">/nointensity</span> <span class="arg">groundfile heightbreak cellsize outputfile datafile</span></pre>
+    </div>
+    <div>
+      <table class="params">
+        <tr><th>Argumento</th><th>Seu valor · significado</th></tr>
+        <tr><td>/nointensity</td><td>Pula estatísticas de intensidade (acelera e reduz colunas)</td></tr>
+        <tr><td>groundfile</td><td><code>NP_T-0355mdt.dtm</code> · normaliza alturas</td></tr>
+        <tr><td>heightbreak</td><td><strong>2</strong> · altura (m) que separa dossel de subdossel</td></tr>
+        <tr><td>cellsize</td><td><strong>50</strong> · célula de 50 m × 50 m</td></tr>
+        <tr><td>outputfile</td><td>Prefixo para vários CSVs gerados</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="card alt" style="margin-top:18px"><h4>O que sai daqui?</h4><p>O FUSION grava vários CSVs (ex.: <code>_all_returns_elevation_stats.csv</code>, <code>_first_returns_elevation_stats.csv</code>, <code>_strata_*</code>). É a base do próximo passo.</p></div>
+</section>
+
+<!-- 8: CSV2Grid -->
+<section class="slide" data-i="8">
+  <h3 class="section">Etapa 4 · CSV2Grid</h3>
+  <h2 class="title">Da tabela de métricas para o raster</h2>
+  <p class="lead">Cada linha do CSV é uma célula. Cada coluna é uma métrica. O <code>CSV2Grid</code> "puxa" uma coluna escolhida e a transforma em um raster ASCII (<code>.asc</code>) que abre no QGIS, ArcGIS ou R.</p>
+  <div class="two-col" style="margin-top:18px">
+    <div>
+      <table class="params">
+        <tr><th>Argumento</th><th>Significado</th></tr>
+        <tr><td>inputfile</td><td>CSV gerado pelo GridMetrics</td></tr>
+        <tr><td>column</td><td>Número (1-based) da coluna a extrair</td></tr>
+        <tr><td>outputfile</td><td>Raster ASCII de saída</td></tr>
+      </table>
+    </div>
+    <div class="card"><h4>Como descobrir o número da coluna?</h4>
+      <ul class="clean">
+        <li>Abra o CSV no Excel — a primeira linha contém os nomes das métricas.</li>
+        <li>Conte da esquerda começando em 1.</li>
+        <li>Os números mudam quando você usa <code>/nointensity</code>, <code>/strata</code> etc.</li>
+        <li>Documente o mapeamento usado em cada projeto.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 9: Columns 36/50/68 -->
+<section class="slide" data-i="9">
+  <h3 class="section">Etapa 4 · Continuação</h3>
+  <h2 class="title">As colunas 36, 50 e 68</h2>
+  <p class="lead">Com <code>/nointensity</code> e o arquivo <code>_all_returns_elevation_stats.csv</code>, a numeração típica é a seguinte (verifique o cabeçalho do seu CSV antes de publicar):</p>
+  <div style="margin-top:18px">
+    <div class="col-row"><div class="col-num">36</div><div><div class="nm">Elev P75 (ou métrica de altura alta)</div><div class="desc">Percentil 75 das alturas — proxy de altura média do dossel.</div></div><div class="desc"><span class="pill">altura</span><span class="pill alt">m</span></div></div>
+    <div class="col-row"><div class="col-num">50</div><div><div class="nm">% First returns above heightbreak</div><div class="desc">Cobertura de dossel: fração de primeiros retornos acima de 2 m.</div></div><div class="desc"><span class="pill">cobertura</span><span class="pill alt">%</span></div></div>
+    <div class="col-row"><div class="col-num">68</div><div><div class="nm">Canopy Relief Ratio (CRR)</div><div class="desc">Indicador de heterogeneidade vertical do dossel: (média − mín) / (máx − mín).</div></div><div class="desc"><span class="pill">estrutura</span><span class="pill alt">0–1</span></div></div>
+  </div>
+  <p class="lead" style="margin-top:20px;font-size:13px;color:#7c8779;font-style:italic">⚠ As posições exatas variam entre versões e switches. Sempre confirme abrindo o CSV. O painel HTML interativo lista todas as colunas conhecidas.</p>
+</section>
+
+<!-- 10: lasboundary -->
+<section class="slide" data-i="10">
+  <h3 class="section">Etapa 5 · lasboundary64</h3>
+  <h2 class="title">Polígono de contorno do transecto</h2>
+  <div class="two-col">
+    <div>
+      <p class="lead">Pertence ao <strong>LAStools</strong> (não ao FUSION) e gera um shapefile com o contorno côncavo da nuvem — útil para visualizar a cobertura do voo, gerar máscaras e fazer mosaicos.</p>
+      <pre class="code" style="font-size:12px;margin-top:14px"><span class="cmd">lasboundary64</span> <span class="arg">-i in.laz -o out.shp</span></pre>
+    </div>
+    <div>
+      <div class="card"><h4>Switches recomendados</h4>
+        <ul class="clean">
+          <li><code>-concavity n</code> — ajusta concavidade (default 50 m)</li>
+          <li><code>-disjoint</code> — separa polígonos disconexos</li>
+          <li><code>-holes</code> — preserva buracos internos</li>
+          <li><code>-thin_with_grid s</code> — acelera em nuvens densas</li>
+        </ul>
+      </div>
+      <p class="lead" style="font-size:13px;margin-top:12px;color:#7c8779;font-style:italic">A licença gratuita do LAStools impõe limites em determinados tamanhos de arquivo — verifique a versão.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11: Boas práticas -->
+<section class="slide" data-i="11">
+  <h3 class="section">Recomendações</h3>
+  <h2 class="title">Boas práticas para o seu pipeline</h2>
+  <div class="three-col">
+    <div class="card"><h4>1. Tamanhos de célula coerentes</h4><p>DTM em 1 m + GridMetrics em 50 m só faz sentido se o transecto for largo o suficiente para conter várias células de 50 m. Caso contrário, reduza para 20–30 m.</p></div>
+    <div class="card alt"><h4>2. Declare a projeção</h4><p>Os zeros em <code>zone/horizdatum/vertdatum</code> deixam o DTM "anônimo". Inserir os códigos corretos evita erros em SIG.</p></div>
+    <div class="card muted"><h4>3. Documente colunas</h4><p>Crie uma tabela <em>coluna → métrica</em> ao lado de cada CSV. Versões de FUSION podem alterar a ordem.</p></div>
+    <div class="card"><h4>4. Inspecione o GroundFilter</h4><p>Use o FUSION viewer (<code>pdq</code>) para ver se ruas/clareiras viraram "buracos" no DTM e ajuste cellsize/iterations.</p></div>
+    <div class="card alt"><h4>5. Automatize com loop</h4><p>Para muitos transectos, troque o <code>.bat</code> por um <code>FOR /D</code> sobre as pastas e parametrize o ID do transecto.</p></div>
+    <div class="card muted"><h4>6. Valide com campo</h4><p>Compare métricas (P75, cobertura) com parcelas medidas em campo antes de extrapolar para produção.</p></div>
+  </div>
+</section>
+
+<!-- 12: Closing -->
+<section class="slide end" data-i="12">
+  <h3 class="section" style="color:#bcd0a8">Encerramento</h3>
+  <h2>Próximos passos &amp; referências</h2>
+  <p>Use o <strong>painel HTML interativo</strong> para explorar o pipeline em mais detalhes — ele inclui o fluxograma clicável, tabela de colunas do GridMetrics e parâmetros recomendados. O painel funciona offline no seu navegador.</p>
+  <div class="ref">
+    <strong>FUSION/LDV — McGaughey, R.J.</strong> · USDA Forest Service · http://forsys.cfr.washington.edu/fusion/fusionlatest.html
+  </div>
+  <div class="ref">
+    <strong>Kraus &amp; Pfeifer (1998)</strong> · Determination of terrain models in wooded areas with airborne laser scanner data · ISPRS Journal · base teórica do GroundFilter.
+  </div>
+  <div class="ref">
+    <strong>LAStools — Isenburg, M.</strong> · rapidlasso GmbH · https://rapidlasso.com/lastools/
+  </div>
+  <div class="ref">
+    <strong>Vídeo recomendado</strong> · busque no YouTube: "FUSION LiDAR forest metrics tutorial" — canal SilvaCarbon e Robert McGaughey têm walkthroughs do GridMetrics.
+  </div>
+  <p style="margin-top:18px;font-size:13px;color:#bcd0a8;font-style:italic">Apresentação preparada como material didático complementar ao script NP_T-0355.</p>
+</section>
+
+</div>
+
+<div class="counter" id="counter">SLIDE 01 / 12</div>
+<div class="nav">
+  <button onclick="go(-1)">◀ Anterior</button>
+  <button onclick="go(1)">Próximo ▶</button>
+  <button onclick="window.print()">Imprimir / PDF</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let idx=0;
+  function show(i){
+    slides.forEach(s=>s.classList.remove('active'));
+    slides[i].classList.add('active');
+    document.getElementById('counter').textContent='SLIDE '+String(i+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  }
+  function go(d){idx=Math.max(0,Math.min(slides.length-1,idx+d));show(idx)}
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown')go(1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp')go(-1);
+    else if(e.key==='Home'){idx=0;show(0)}
+    else if(e.key==='End'){idx=slides.length-1;show(idx)}
+  });
+</script>
+</body>
+</html>

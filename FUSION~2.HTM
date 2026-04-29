@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FUSION · Painel Interativo do Pipeline LiDAR</title>
+<style>
+  :root{
+    --forest:#2C5F2D;
+    --forest-d:#1B3F1C;
+    --moss:#97BC62;
+    --cream:#F8F6EE;
+    --ink:#1B2A1A;
+    --slate:#4B5A4A;
+    --line:#DDE2D5;
+    --accent:#E8A23C;
+    --bg:#F4F1E5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Calibri,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
+  header{background:linear-gradient(135deg,var(--forest) 0%,var(--forest-d) 100%);color:var(--cream);padding:36px 40px 28px;position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;background:rgba(151,188,98,.18)}
+  header .eyebrow{color:var(--moss);letter-spacing:5px;text-transform:uppercase;font-size:12px;font-weight:700}
+  header h1{font-family:Georgia,serif;font-size:38px;margin-top:8px;font-weight:700;line-height:1.1;max-width:880px}
+  header p{color:#dfe9d4;margin-top:10px;max-width:760px;font-size:15px}
+  main{max-width:1200px;margin:0 auto;padding:30px 24px 60px}
+  section{background:#fff;border-radius:14px;padding:28px 30px;margin-bottom:22px;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+  h2.s-title{font-family:Georgia,serif;font-size:22px;color:var(--forest);margin-bottom:6px;display:flex;align-items:center;gap:10px}
+  h2.s-title .badge{background:var(--accent);color:#3a2a08;font-size:11px;letter-spacing:1px;padding:3px 10px;border-radius:30px;font-weight:700;font-family:Calibri,sans-serif}
+  p.s-lead{color:var(--slate);font-size:15px;margin-bottom:18px;max-width:920px}
+  /* Pipeline */
+  .pipe{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .step{flex:1;min-width:170px;background:#fff;border:1px solid var(--line);border-top:4px solid var(--forest);border-radius:8px;padding:14px 14px 16px;cursor:pointer;transition:all .2s ease;position:relative}
+  .step:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(44,95,45,.18);border-top-color:var(--accent)}
+  .step.active{background:#fbf8ec;border-color:var(--accent);border-top-width:4px;border-top-color:var(--accent);box-shadow:0 8px 18px rgba(232,162,60,.25)}
+  .step .num{font-family:Georgia,serif;font-size:26px;color:var(--accent);font-weight:700;line-height:1}
+  .step .name{font-family:Consolas,monospace;font-size:13px;color:var(--forest);font-weight:700;margin:6px 0 4px}
+  .step .role{font-size:12px;color:var(--slate);line-height:1.35}
+  /* Detail panel */
+  .detail{margin-top:18px;background:linear-gradient(180deg,#fbf8ec 0%,#fff 80%);border:1px solid var(--line);border-radius:10px;padding:22px 26px;display:none}
+  .detail.open{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .detail h3{font-family:Georgia,serif;color:var(--forest);font-size:20px;margin-bottom:10px}
+  .detail .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:22px;margin-top:10px}
+  .detail pre{background:var(--ink);color:#dfe9d4;padding:14px 16px;border-radius:8px;font-size:12.5px;font-family:Consolas,monospace;line-height:1.6;border-left:3px solid var(--accent);overflow-x:auto}
+  .detail pre .c{color:#E8A23C}.detail pre .a{color:#a8d28b}.detail pre .x{color:#86968a;font-style:italic}
+  table.params{width:100%;border-collapse:collapse;font-size:13px}
+  table.params th{text-align:left;background:var(--forest);color:#fff;padding:8px 10px;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+  table.params td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--slate);vertical-align:top}
+  table.params td:first-child{font-family:Consolas,monospace;color:var(--ink);font-weight:700;width:38%;font-size:12.5px}
+  /* Filters / search */
+  .toolbar{display:flex;gap:10px;align-items:center;margin:14px 0 12px;flex-wrap:wrap}
+  .toolbar input{flex:1;min-width:240px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);font-size:14px;font-family:inherit;background:#fbf8ec}
+  .toolbar input:focus{outline:none;border-color:var(--accent)}
+  .toolbar select{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fbf8ec;font-family:inherit;font-size:13px}
+  .toolbar .pill{background:var(--moss);color:var(--ink);padding:6px 12px;border-radius:30px;font-size:12px;font-weight:700;cursor:pointer;border:none}
+  .toolbar .pill.alt{background:var(--accent);color:#3a2a08}
+  .toolbar .pill.muted{background:var(--line);color:var(--slate)}
+  .toolbar .pill.active{box-shadow:inset 0 0 0 2px var(--ink)}
+  /* Columns table */
+  table.cols{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  table.cols th{position:sticky;top:0;background:var(--forest);color:#fff;text-align:left;padding:10px 12px;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase}
+  table.cols td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--slate);vertical-align:top}
+  table.cols tr.highlight td{background:#fbf8ec}
+  table.cols tr:hover td{background:#f6f2e0}
+  table.cols td.num{font-family:Georgia,serif;color:var(--accent);font-weight:700;text-align:center;width:60px}
+  table.cols td.nm{font-family:Consolas,monospace;color:var(--forest);font-weight:700;width:32%;font-size:12.5px}
+  table.cols td.cat{width:130px}
+  .tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:30px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  .tag.h{background:#dff0d8;color:#2C5F2D}
+  .tag.d{background:#f9e0c2;color:#8a5a18}
+  .tag.s{background:#dde7f6;color:#3a4f72}
+  .tag.b{background:#efeaef;color:#62456a}
+  /* Two-col explanation row */
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+  .row2 .cell{background:#fbf8ec;border-radius:10px;padding:14px 16px;border-left:3px solid var(--moss)}
+  .row2 .cell h4{font-family:Georgia,serif;color:var(--forest);margin-bottom:4px;font-size:15px}
+  .row2 .cell p{font-size:13px;color:var(--slate)}
+  /* Code preview */
+  pre.full{background:var(--ink);color:#dfe9d4;padding:18px 22px;border-radius:10px;font-size:12.5px;font-family:Consolas,monospace;line-height:1.6;border-left:4px solid var(--accent);overflow-x:auto}
+  pre.full .c{color:#E8A23C}.full .a{color:#a8d28b}.full .x{color:#86968a;font-style:italic}
+  /* Tip */
+  .tip{margin-top:14px;background:#fff8e6;border-left:4px solid var(--accent);padding:12px 16px;border-radius:6px;font-size:13px;color:#5a4308}
+  /* Footer refs */
+  footer{padding:24px 40px;color:#6e7a6c;font-size:12px;text-align:center}
+  /* Mini stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:6px}
+  .stat{background:linear-gradient(180deg,#fff 0%,#fbf8ec 100%);border-radius:10px;padding:16px 14px;text-align:center;border:1px solid var(--line)}
+  .stat .n{font-family:Georgia,serif;color:var(--accent);font-size:30px;font-weight:700;line-height:1}
+  .stat .t{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--slate);margin-top:6px}
+  @media (max-width:780px){
+    .detail .grid{grid-template-columns:1fr}
+    .row2{grid-template-columns:1fr}
+    .stats{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">FUSION · USDA Forest Service</div>
+  <h1>Painel Interativo · Pipeline LiDAR</h1>
+  <p>Explore o processamento de transectos passo a passo. Clique em cada etapa para ver os parâmetros, e use a busca para encontrar colunas do GridMetrics que você utiliza no <code>CSV2Grid</code>.</p>
+</header>
+
+<main>
+
+  <!-- KPIs -->
+  <section>
+    <h2 class="s-title">Resumo do Pipeline NP_T-0355 <span class="badge">SEU SCRIPT</span></h2>
+    <div class="stats">
+      <div class="stat"><div class="n">5</div><div class="t">Etapas</div></div>
+      <div class="stat"><div class="n">8 m</div><div class="t">GroundFilter cellsize</div></div>
+      <div class="stat"><div class="n">1 m</div><div class="t">DTM resolução</div></div>
+      <div class="stat"><div class="n">50 m</div><div class="t">GridMetrics célula</div></div>
+    </div>
+  </section>
+
+  <!-- Pipeline interativo -->
+  <section>
+    <h2 class="s-title">Fluxograma · clique em cada etapa</h2>
+    <p class="s-lead">Cada caixa representa um comando do seu <code>.bat</code>. Clique para ver argumentos, switches recomendados e exemplos.</p>
+    <div class="pipe" id="pipe">
+      <div class="step active" data-step="1"><div class="num">1</div><div class="name">GroundFilter64</div><div class="role">Filtra retornos do solo</div></div>
+      <div class="step" data-step="2"><div class="num">2</div><div class="name">GridSurfaceCreate64</div><div class="role">Gera o DTM (.dtm)</div></div>
+      <div class="step" data-step="3"><div class="num">3</div><div class="name">gridmetrics64</div><div class="role">Métricas por célula</div></div>
+      <div class="step" data-step="4"><div class="num">4</div><div class="name">CSV2Grid</div><div class="role">CSV → raster ASC</div></div>
+      <div class="step" data-step="5"><div class="num">5</div><div class="name">lasboundary64</div><div class="role">Polígono do voo</div></div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="detail open" id="d1">
+      <h3>1 · GroundFilter64 — identifica solo na nuvem</h3>
+      <p class="s-lead">Algoritmo iterativo (Kraus &amp; Pfeifer, 1998). Cada ponto recebe um peso conforme a probabilidade de ser solo; pontos altos perdem peso a cada iteração até a convergência.</p>
+      <div class="grid">
+        <table class="params">
+          <tr><th>Argumento</th><th>Significado / valor no script</th></tr>
+          <tr><td>cellsize</td><td><strong>8</strong> · célula do filtro. Maior = relevo suave; menor = preserva microrelevo.</td></tr>
+          <tr><td>outputfile</td><td><code>NP_T-0355gnd.laz</code></td></tr>
+          <tr><td>inputfile</td><td><code>NP_T-0355.laz</code></td></tr>
+          <tr><td>/gparam:n</td><td>Função-peso (default −2.0)</td></tr>
+          <tr><td>/wparam:n</td><td>Distância da função-peso (default 2.5)</td></tr>
+          <tr><td>/iterations:n</td><td>Iterações (default 5)</td></tr>
+          <tr><td>/tolerance:n</td><td>Tolerância para vegetação densa</td></tr>
+          <tr><td>/class:c,c</td><td>Restringe a classes específicas</td></tr>
+        </table>
+        <div>
+          <pre><span class="x">REM Filtragem do solo</span>
+<span class="c">GroundFilter64</span> <span class="a">NP_T-0355gnd.laz 8 NP_T-0355.laz</span></pre>
+          <div class="tip"><strong>Dica:</strong> em terreno acidentado, reduza cellsize para 5 m e aumente iterations. Sempre inspecione o resultado no FUSION viewer (<code>pdq</code>).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="detail" id="d2">
+      <h3>2 · GridSurfaceCreate64 — gera o DTM</h3>
+      <p class="s-lead">Converte os pontos de solo em uma superfície contínua no formato binário <code>.dtm</code> do FUSION. É a referência altimétrica do pipeline.</p>
+      <div class="grid">
+        <table class="params">
+          <tr><th>Argumento</th><th>Valor / função</th></tr>
+          <tr><td>surfacefile</td><td><code>NP_T-0355mdt.dtm</code></td></tr>
+          <tr><td>cellsize</td><td><strong>1</strong> · resolução em metros</td></tr>
+          <tr><td>xyunits</td><td><strong>m</strong> (metros)</td></tr>
+          <tr><td>zunits</td><td><strong>m</strong> (metros)</td></tr>
+          <tr><td>coordsys</td><td><strong>1</strong> · UTM (0=desconhecido, 2=state plane)</td></tr>
+          <tr><td>zone</td><td><strong>0</strong> · não declarado</td></tr>
+          <tr><td>horizdatum</td><td><strong>0</strong> · não declarado</td></tr>
+          <tr><td>vertdatum</td><td><strong>0</strong> · não declarado</td></tr>
+        </table>
+        <div>
+          <pre><span class="c">GridSurfaceCreate64</span> <span class="a">mdt.dtm 1 m m 1 0 0 0 gnd.laz</span></pre>
+          <div class="tip"><strong>Atenção:</strong> declarar zone (ex.: 23 para UTM 23S no Brasil) e horizdatum/vertdatum corretos torna o DTM reutilizável em SIG sem reprojetar.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="detail" id="d3">
+      <h3>3 · gridmetrics64 — estatísticas por célula</h3>
+      <p class="s-lead">Núcleo do processamento florestal. Calcula dezenas de métricas (alturas, percentis, cobertura, intensidade) para cada célula da grade.</p>
+      <div class="grid">
+        <table class="params">
+          <tr><th>Argumento</th><th>Valor / função</th></tr>
+          <tr><td>/nointensity</td><td>Pula stats de intensidade (acelera)</td></tr>
+          <tr><td>groundfile</td><td><code>mdt.dtm</code> · normaliza alturas</td></tr>
+          <tr><td>heightbreak</td><td><strong>2</strong> · separa dossel/subdossel (m)</td></tr>
+          <tr><td>cellsize</td><td><strong>50</strong> · célula 50×50 m</td></tr>
+          <tr><td>outputfile</td><td>Prefixo · gera vários CSVs</td></tr>
+          <tr><td>/strata:h,h</td><td>Define estratos personalizados</td></tr>
+          <tr><td>/minht:h</td><td>Altura mínima considerada</td></tr>
+          <tr><td>/outlier:lo,hi</td><td>Remove valores extremos</td></tr>
+        </table>
+        <div>
+          <pre><span class="c">gridmetrics64</span> <span class="a">/nointensity mdt.dtm 2 50 saida.csv NP_T-0355.laz</span></pre>
+          <div class="tip"><strong>Saída:</strong> <code>_all_returns_elevation_stats.csv</code>, <code>_first_returns_elevation_stats.csv</code>, <code>_strata_*</code>. O CSV all-returns é o usado no seu próximo passo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="detail" id="d4">
+      <h3>4 · CSV2Grid — extrai colunas para raster</h3>
+      <p class="s-lead">Cada célula vira uma linha no CSV. O CSV2Grid pega uma coluna escolhida e a salva em raster ASCII (<code>.asc</code>) — formato aberto que abre no QGIS, ArcGIS, R (terra/raster) e Python (rasterio).</p>
+      <div class="grid">
+        <table class="params">
+          <tr><th>Argumento</th><th>Função</th></tr>
+          <tr><td>inputfile</td><td>CSV gerado pelo GridMetrics</td></tr>
+          <tr><td>column</td><td>Nº (1-based) da coluna</td></tr>
+          <tr><td>outputfile</td><td>Raster <code>.asc</code></td></tr>
+          <tr><td>/multiplier:n</td><td>Multiplica os valores</td></tr>
+          <tr><td>/ndzero</td><td>NoData = 0</td></tr>
+        </table>
+        <div>
+          <pre><span class="c">csv2grid</span> <span class="a">..._all_returns_elevation_stats.csv 36 grid36.asc</span>
+<span class="c">csv2grid</span> <span class="a">..._all_returns_elevation_stats.csv 50 grid50.asc</span>
+<span class="c">csv2grid</span> <span class="a">..._all_returns_elevation_stats.csv 68 grid68.asc</span></pre>
+          <div class="tip"><strong>Use a tabela abaixo</strong> para encontrar o que cada coluna significa. Confirme sempre abrindo o CSV no Excel — versões diferentes do FUSION podem reordenar colunas.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="detail" id="d5">
+      <h3>5 · lasboundary64 — contorno do voo (LAStools)</h3>
+      <p class="s-lead">Externo ao FUSION. Gera shapefile com o contorno côncavo da nuvem, útil para mosaicos, máscaras e visualização da cobertura efetiva.</p>
+      <div class="grid">
+        <table class="params">
+          <tr><th>Switch</th><th>Função</th></tr>
+          <tr><td>-i in.laz</td><td>Arquivo de entrada</td></tr>
+          <tr><td>-o out.shp</td><td>Shapefile de saída</td></tr>
+          <tr><td>-concavity n</td><td>Concavidade em metros (default 50)</td></tr>
+          <tr><td>-disjoint</td><td>Polígonos desconexos separados</td></tr>
+          <tr><td>-holes</td><td>Preserva buracos</td></tr>
+          <tr><td>-thin_with_grid s</td><td>Decimação por grade</td></tr>
+        </table>
+        <div>
+          <pre><span class="c">lasboundary64</span> <span class="a">-i NP_T-0355.laz -o NP_T-0355.shp -concavity 25 -holes</span></pre>
+          <div class="tip"><strong>Licença:</strong> versão gratuita do LAStools tem limites em arquivos grandes. Verifique a versão antes de produção.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabela de colunas GridMetrics -->
+  <section>
+    <h2 class="s-title">Tabela de colunas · GridMetrics CSV <span class="badge">_ALL_RETURNS_ELEVATION_STATS</span></h2>
+    <p class="s-lead">Mapeamento típico do CSV gerado com <code>/nointensity</code>. Use a busca abaixo para localizar uma métrica e descobrir o número da coluna que vai no <code>CSV2Grid</code>.</p>
+
+    <div class="toolbar">
+      <input id="q" type="text" placeholder="Buscar coluna por nome (ex.: P75, cover, kurtosis...)">
+      <button class="pill active" data-cat="all">Todas</button>
+      <button class="pill" data-cat="h">Altura</button>
+      <button class="pill alt" data-cat="d">Densidade</button>
+      <button class="pill muted" data-cat="s">Estatística</button>
+      <button class="pill muted" data-cat="b">Identificação</button>
+    </div>
+
+    <div style="overflow-x:auto;max-height:520px;border:1px solid var(--line);border-radius:8px">
+      <table class="cols" id="ctable">
+        <thead><tr><th>Col</th><th>Métrica</th><th>Categoria</th><th>Descrição</th></tr></thead>
+        <tbody id="cbody"></tbody>
+      </table>
+    </div>
+    <div class="tip"><strong>⚠ Importante:</strong> a numeração varia conforme switches (<code>/nointensity</code>, <code>/strata</code>, <code>/first</code>) e versões do FUSION. Sempre confira o cabeçalho do seu CSV antes de publicar resultados.</div>
+  </section>
+
+  <!-- Boas práticas -->
+  <section>
+    <h2 class="s-title">Boas práticas para o seu pipeline</h2>
+    <div class="row2">
+      <div class="cell"><h4>1. Inspeção visual após GroundFilter</h4><p>Abra o <code>_gnd.laz</code> no <code>pdq</code> (FUSION viewer) e cheque clareiras, estradas e leitos secos. Erros aqui propagam-se até o GridMetrics.</p></div>
+      <div class="cell"><h4>2. Coerência entre cellsizes</h4><p>DTM em 1 m + GridMetrics em 50 m exige um transecto suficientemente largo. Em transectos finos (&lt;100 m), reduza para 20–30 m.</p></div>
+      <div class="cell"><h4>3. Declare projeção / datum</h4><p>Os <code>0 0 0</code> deixam o DTM "anônimo". Substitua por zone real (ex.: 23 para UTM 23S no Brasil), horizdatum=2 (NAD83) ou WGS84, vertdatum apropriado.</p></div>
+      <div class="cell"><h4>4. Documente o mapeamento de colunas</h4><p>Crie um arquivo <code>colunas.txt</code> ao lado de cada CSV registrando o que é a coluna 36, 50, 68 etc. — protege o projeto contra mudanças de versão.</p></div>
+      <div class="cell"><h4>5. Outliers e altura mínima</h4><p>Use <code>/outlier:-2,80</code> e <code>/minht:0.15</code> no GridMetrics para descartar ruídos baixos (0,15 m) e leituras absurdas.</p></div>
+      <div class="cell"><h4>6. Loop em lote</h4><p>Para vários transectos: <code>FOR /D %%T IN (C:\FUSION\DATA\*) DO ...</code> — substitua o ID e produza tudo em batelada.</p></div>
+    </div>
+  </section>
+
+  <!-- Referências -->
+  <section>
+    <h2 class="s-title">Referências e materiais complementares</h2>
+    <ul style="list-style:none;padding:0">
+      <li style="border-left:3px solid var(--accent);padding:10px 14px;margin-bottom:10px;background:#fbf8ec;border-radius:6px"><strong>FUSION/LDV — McGaughey, R.J.</strong><br/><span style="font-size:13px;color:var(--slate)">Manual oficial e binários · USDA Forest Service · <code>http://forsys.cfr.washington.edu/fusion/fusionlatest.html</code></span></li>
+      <li style="border-left:3px solid var(--accent);padding:10px 14px;margin-bottom:10px;background:#fbf8ec;border-radius:6px"><strong>Kraus, K. &amp; Pfeifer, N. (1998).</strong><br/><span style="font-size:13px;color:var(--slate)">"Determination of terrain models in wooded areas with airborne laser scanner data" · ISPRS Journal · base teórica do GroundFilter.</span></li>
+      <li style="border-left:3px solid var(--accent);padding:10px 14px;margin-bottom:10px;background:#fbf8ec;border-radius:6px"><strong>LAStools — Isenburg, M.</strong><br/><span style="font-size:13px;color:var(--slate)">rapidlasso GmbH · <code>https://rapidlasso.com/lastools/</code> · documentação por comando.</span></li>
+      <li style="border-left:3px solid var(--accent);padding:10px 14px;margin-bottom:10px;background:#fbf8ec;border-radius:6px"><strong>Vídeos recomendados (YouTube):</strong><br/><span style="font-size:13px;color:var(--slate)">"FUSION LiDAR forest metrics tutorial" · "GridMetrics tutorial McGaughey" · "Processing LiDAR with FUSION" — canais SilvaCarbon e USFS.</span></li>
+      <li style="border-left:3px solid var(--accent);padding:10px 14px;background:#fbf8ec;border-radius:6px"><strong>R packages relacionados:</strong><br/><span style="font-size:13px;color:var(--slate)"><code>lidR</code> (CRAN) e <code>rLiDAR</code> oferecem alternativas em R com workflows semelhantes ao FUSION.</span></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>Painel didático complementar · transecto NP_T-0355 · uso interno</footer>
+
+<script>
+  // Step navigation
+  const steps=document.querySelectorAll('.step');
+  const details=document.querySelectorAll('.detail');
+  steps.forEach(s=>{
+    s.addEventListener('click',()=>{
+      const id=s.dataset.step;
+      steps.forEach(x=>x.classList.remove('active'));
+      details.forEach(d=>d.classList.remove('open'));
+      s.classList.add('active');
+      document.getElementById('d'+id).classList.add('open');
+    });
+  });
+
+  // Columns table data — mapeamento típico do _all_returns_elevation_stats.csv com /nointensity
+  // (categorias: b=básico, h=altura, d=densidade, s=estatística)
+  const COLUMNS=[
+    [1,'Row','b','Identificador da linha da grade.'],
+    [2,'Col','b','Identificador da coluna da grade.'],
+    [3,'Center X','b','Coordenada X do centro da célula.'],
+    [4,'Center Y','b','Coordenada Y do centro da célula.'],
+    [5,'Total return count','b','Total de retornos LiDAR na célula.'],
+    [6,'Total return count above ht break','d','Retornos acima do heightbreak (no script: 2 m).'],
+    [7,'Total first returns','b','Total de primeiros retornos.'],
+    [8,'Total first returns above ht break','d','Primeiros retornos acima do heightbreak.'],
+    [9,'Elev minimum','h','Altura mínima dos retornos (m).'],
+    [10,'Elev maximum','h','Altura máxima (m).'],
+    [11,'Elev mean','h','Altura média.'],
+    [12,'Elev mode','h','Moda da altura.'],
+    [13,'Elev stddev','s','Desvio padrão da altura.'],
+    [14,'Elev variance','s','Variância da altura.'],
+    [15,'Elev CV','s','Coeficiente de variação.'],
+    [16,'Elev IQ','s','Intervalo interquartil.'],
+    [17,'Elev skewness','s','Assimetria da distribuição vertical.'],
+    [18,'Elev kurtosis','s','Curtose da distribuição vertical.'],
+    [19,'Elev AAD','s','Average Absolute Deviation.'],
+    [20,'Elev L1','s','Momento L1 (média).'],
+    [21,'Elev L2','s','Momento L2.'],
+    [22,'Elev L3','s','Momento L3.'],
+    [23,'Elev L4','s','Momento L4.'],
+    [24,'Elev L CV','s','Coef. variação L.'],
+    [25,'Elev L skewness','s','Assimetria L.'],
+    [26,'Elev L kurtosis','s','Curtose L.'],
+    [27,'Elev P01','h','Percentil 1 da altura.'],
+    [28,'Elev P05','h','Percentil 5.'],
+    [29,'Elev P10','h','Percentil 10.'],
+    [30,'Elev P20','h','Percentil 20.'],
+    [31,'Elev P25','h','Percentil 25.'],
+    [32,'Elev P30','h','Percentil 30.'],
+    [33,'Elev P40','h','Percentil 40.'],
+    [34,'Elev P50 (mediana)','h','Percentil 50 — mediana das alturas.'],
+    [35,'Elev P60','h','Percentil 60.'],
+    [36,'Elev P70','h','Percentil 70 — proxy de altura média do dossel (USADO).'],
+    [37,'Elev P75','h','Percentil 75.'],
+    [38,'Elev P80','h','Percentil 80.'],
+    [39,'Elev P90','h','Percentil 90 — frequentemente usado como altura "dominante".'],
+    [40,'Elev P95','h','Percentil 95.'],
+    [41,'Elev P99','h','Percentil 99 — altura próxima ao topo do dossel.'],
+    [42,'Return 1 count','b','Contagem do 1º retorno.'],
+    [43,'Return 2 count','b','Contagem do 2º retorno.'],
+    [44,'Return 3 count','b','Contagem do 3º retorno.'],
+    [45,'Return 4 count','b','Contagem do 4º retorno.'],
+    [46,'Return 5 count','b','Contagem do 5º retorno.'],
+    [47,'Return 6 count','b','Contagem do 6º retorno.'],
+    [48,'Return 7 count','b','Contagem do 7º retorno.'],
+    [49,'% all returns above heightbreak','d','Cobertura: % de todos os retornos acima de 2 m.'],
+    [50,'(All returns above ht break) / (Total first returns) * 100','d','Métrica de cobertura usada como índice de copa (USADO).'],
+    [51,'% first returns above ht break','d','% de primeiros retornos acima do heightbreak.'],
+    [52,'All returns above mean','d','Retornos acima da média de altura.'],
+    [53,'All returns above mode','d','Retornos acima da moda.'],
+    [54,'% all returns above mean','d','% acima da média.'],
+    [55,'% all returns above mode','d','% acima da moda.'],
+    [56,'(All returns above mean) / (Total first returns) * 100','d','Índice de cobertura ponderado pela média.'],
+    [57,'(All returns above mode) / (Total first returns) * 100','d','Índice de cobertura ponderado pela moda.'],
+    [58,'First returns above mean','d','Primeiros retornos acima da média.'],
+    [59,'First returns above mode','d','Primeiros retornos acima da moda.'],
+    [60,'% first returns above mean','d','% de 1º retornos acima da média.'],
+    [61,'% first returns above mode','d','% de 1º retornos acima da moda.'],
+    [62,'Canopy relief ratio','s','(média − mín) / (máx − mín) — heterogeneidade vertical.'],
+    [63,'Elev quadratic mean','h','Média quadrática (RMS) das alturas.'],
+    [64,'Elev cubic mean','h','Média cúbica das alturas.'],
+    [65,'Strata 0 to 0.15 returns','d','Retornos abaixo de 0,15 m (chão raso).'],
+    [66,'Strata 0.15 to 1.37 returns','d','Retornos entre 0,15 e 1,37 m (sub-bosque baixo).'],
+    [67,'Strata 1.37 to 5 returns','d','Retornos entre 1,37 e 5 m (regeneração).'],
+    [68,'Strata 5 to 10 returns','d','Retornos entre 5 e 10 m (USADO — sub-dossel inferior).'],
+    [69,'Strata 10 to 20 returns','d','Retornos entre 10 e 20 m (sub-dossel superior).'],
+    [70,'Strata 20 to 30 returns','d','Retornos entre 20 e 30 m (dossel).'],
+    [71,'Strata > 30 returns','d','Retornos acima de 30 m (emergentes).'],
+  ];
+
+  function render(filterCat,query){
+    const tbody=document.getElementById('cbody');
+    tbody.innerHTML='';
+    const q=(query||'').trim().toLowerCase();
+    COLUMNS.forEach(([n,name,cat,desc])=>{
+      if(filterCat!=='all'&&cat!==filterCat)return;
+      if(q&&!(name.toLowerCase().includes(q)||desc.toLowerCase().includes(q)||String(n)===q))return;
+      const tr=document.createElement('tr');
+      const highlight=[36,50,68].includes(n);
+      if(highlight)tr.classList.add('highlight');
+      const tagMap={h:'tag h',d:'tag d',s:'tag s',b:'tag b'};
+      const tagText={h:'Altura',d:'Densidade',s:'Estatística',b:'Identif.'};
+      tr.innerHTML=`
+        <td class="num">${n}</td>
+        <td class="nm">${name}${highlight?' &nbsp;<span class="tag d">USADO</span>':''}</td>
+        <td class="cat"><span class="${tagMap[cat]}">${tagText[cat]}</span></td>
+        <td>${desc}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  let curCat='all';
+  document.querySelectorAll('.toolbar .pill').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('.toolbar .pill').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      curCat=b.dataset.cat;
+      render(curCat,document.getElementById('q').value);
+    });
+  });
+  document.getElementById('q').addEventListener('input',e=>render(curCat,e.target.value));
+  render('all','');
+</script>
+</body>
+</html>
